@@ -1,0 +1,16 @@
+document[Main]
+
+codelanguage-def[Java][class, public, static, void]
+
+chapter[Dummy Title]
+
+code[Java][
+	/* a testclass */
+	class Foo {
+		public static void main(String\[\] args){
+			System.out.println("Hello World"+'\n'); // say "hello"
+		}
+	}
+]
+
+

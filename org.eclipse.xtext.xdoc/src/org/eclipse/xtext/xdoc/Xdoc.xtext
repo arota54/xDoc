@@ -1,0 +1,221 @@
+grammar org.eclipse.xtext.xdoc.Xdoc hidden(SL_COMMENT)
+
+import "http://www.eclipse.org/emf/2002/Ecore" as ecore
+import "http://www.eclipse.org/xtext/common/JavaVMTypes" as types
+import "http://www.eclipse.org/xtext/xdoc/Xdoc"
+
+XdocFile:
+	{XdocFile}
+	WS? MULTI_NL?
+	(mainSection=(Document |
+					Part	|
+					Chapter |
+					Section |
+					Section2)
+	MULTI_NL?)?;
+
+
+Document:
+	'document[' title=TextOrMarkup ']'
+	(MULTI_NL 'subtitle[' subtitle=TextOrMarkup ']')?
+	(MULTI_NL 'authors[' authors=TextOrMarkup ']')?
+	(MULTI_NL langDefs+=LangDef)*
+	(MULTI_NL glossary=Glossary)?
+	(MULTI_NL ((chapters+=Chapter (MULTI_NL chapters+=Chapter)* ) | (parts+=Part (MULTI_NL parts+=Part)*))?);
+
+Glossary:
+	(MULTI_NL glossaryEntry+=GlossaryEntry)+
+;
+
+Part:
+	PartRef |
+	('part:'name=ID '[' | 'part[' ) title=TextOrMarkup ']'
+	(MULTI_NL chapters+=Chapter)*
+;
+
+PartRef:
+	'part-ref[' part=[Part] ']'
+;
+
+
+GlossaryEntry:
+	'gloss-entry['name=UnpunctText(',' ANY_WS* alias+=UnpunctText ANY_WS*)*']' ANY_WS* '[' description+=TextOrMarkup(MULTI_NL description+=TextOrMarkup)* ']'
+;
+
+
+Chapter:
+	ChapterRef|
+	('chapter:' name=ID '['| 'chapter[') title=TextOrMarkup ']' 
+	(MULTI_NL contents+=TextOrMarkup)*
+	(MULTI_NL subSections+=Section)*;
+	
+ChapterRef:
+	'chapter-ref[' chapter=[Chapter] ']';
+
+Section:
+	SectionRef|
+	('section:' name=ID '['| 'section[') title=TextOrMarkup ']' 
+	(MULTI_NL contents+=TextOrMarkup)*
+	(MULTI_NL subSections+=Section2)*;
+	
+SectionRef:
+	'section-ref[' section=[Section] ']';
+
+Section2:
+	Section2Ref |
+	('section2:' name=ID '['| 'section2[') title=TextOrMarkup ']' 
+	(MULTI_NL contents+=TextOrMarkup)*
+	(MULTI_NL subSections+=Section3)*;
+
+Section2Ref:
+	'section2-ref[' section2=[Section2] ']';
+
+Section3:
+	('section3:' name=ID '['|'section3[') title=TextOrMarkup ']' 
+	(MULTI_NL contents+=TextOrMarkup)*
+	(MULTI_NL subSections+=Section4)*;
+
+Section4:
+	('section4:' name=ID '['|'section4[') title=TextOrMarkup ']' 
+	(MULTI_NL contents+=TextOrMarkup)*;
+
+TextOrMarkup:
+	(contents+=TextPart
+	(contents+=MarkUp contents+=TextPart?)* |
+	(contents+=MarkUp contents+=TextPart?)+);
+
+TextPart:
+	text=Text;
+
+Text:
+	(ID | WS | SINGLE_NL | ANY_OTHER | '\\[' | '\\]' | ',' | "-" | '\\:' | '\\%')+;
+
+UnpunctText:
+	(ID | ANY_OTHER | '\\[' | '\\]' | "-" | '\\:' | '\\%')+
+		(WS (ID | ANY_OTHER | '\\[' | '\\]' | "-" | '\\:' | '\\%'))*
+;
+
+MarkUp:
+	Emphasize |
+	Anchor |
+	Ref |
+	OrderedList |
+	UnorderedList |
+	CodeBlock |
+	CodeRef |
+	Link |
+	ImageRef |
+	Table | 
+	Todo;
+	
+Table :
+	{Table}
+	'table['
+		(ANY_WS*  rows+=TableRow)*
+		ANY_WS*
+	']';
+
+TableRow :
+	{TableRow}
+	'tr['
+		(ANY_WS* data+=TableData)*
+		ANY_WS*
+	']';
+
+TableData :
+	{TableData}
+	'td[' (MULTI_NL? contents+=TextOrMarkup (MULTI_NL contents+=TextOrMarkup)*)? ']';
+
+Emphasize:
+	{Emphasize}
+	'e[' (MULTI_NL? contents+=TextOrMarkup MULTI_NL?)? ']';
+
+Anchor:
+	'a[' name=ID ']';
+
+Ref:
+	'ref:' ref=[Identifiable] ('[' MULTI_NL? (contents+=TextOrMarkup MULTI_NL?)? ']')?;
+
+OrderedList:
+	{OrderedList}
+	'ol['
+		(ANY_WS* items+=Item)*
+		ANY_WS*
+	']';
+
+UnorderedList:
+	{UnorderedList}
+	'ul['
+		(ANY_WS* items+=Item)*
+		ANY_WS*
+	']';
+
+Item:
+	{Item}
+	'item[' (MULTI_NL? contents+=TextOrMarkup (MULTI_NL contents+=TextOrMarkup)*)? ']';
+
+CodeRef:
+	{CodeRef}
+	'codeRef[' (element=[types::JvmDeclaredType|Text])? ']' ('['altText=TextOrMarkup']')?;
+
+Link:
+	{Link}
+	'link[' (url=Text)? ']' ANY_WS* '[' (text=Text)? ']';
+
+	// Don't think this was the discussed syntax
+ImageRef:
+	('img:' ANY_WS* name=ID ANY_WS* '['|'img[') path=Text /*TODO make it a crossreference to images */ ']'
+	ANY_WS* '[' caption=Text? ']' ANY_WS* '[' clazz=Text? ']' ANY_WS* '[' style=Text? ']' ;
+
+CodeBlock:
+	{CodeBlock}
+	'code[' (ANY_WS* language=[LangDef] ANY_WS* ']' ANY_WS* '[')? 
+		(contents+=Code
+		(contents+=MarkupInCode contents+=Code?)* |
+		(contents+=MarkupInCode contents+=Code?)+)?
+	']';
+
+Todo:
+	{Todo}
+	"todo[" text=Text? "]";
+
+Code:
+	contents=CodeText;
+
+MarkupInCode:
+	Emphasize |
+	Anchor |
+	Ref |
+	Todo;
+
+LangDef:
+	'codelanguage-def['name=ID']'ANY_WS*'['(ANY_WS* (keywords+=KeyWord) ANY_WS* (','ANY_WS* (keywords+=KeyWord) ANY_WS*)*)?']' |
+	{LangDef} 'codelanguage-def['(ANY_WS* keywords+=KeyWord ANY_WS* (','ANY_WS* keywords+=KeyWord ANY_WS*)*)?']';
+
+CodeText:
+	(ID | MULTI_NL | WS | SINGLE_NL | ANY_OTHER | '\\[' | '\\]' | ',' | "-" | '\\:' | '\\%')+;
+
+ANY_WS:
+	MULTI_NL | SINGLE_NL | WS;
+
+KeyWord: 
+	UnpunctText;
+	//(ID | "-")+; 
+
+terminal ID:
+	('a'..'z' | 'A'..'Z' | '_') ('a'..'z' | 'A'..'Z' | '_' | '0'..'9')*;
+
+terminal SL_COMMENT:
+	'%%' !('\n' | '\r')* ('\r'? '\n');
+
+terminal MULTI_NL:
+	'\r'? '\n' (/*(' ' | '\t')**/ '\r'? '\n')+;
+
+terminal SINGLE_NL:
+	'\r'? '\n';
+
+terminal WS:
+	' ' | '\t';
+
+terminal ANY_OTHER:
+	.;
